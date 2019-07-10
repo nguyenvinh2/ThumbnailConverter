@@ -78,16 +78,24 @@ namespace ThumbnailConverter
                                         memoryStream.Write(buffer, 0, bytesRead);
 
                                     var thumbnail = Thumbnail.ConvertToThumbnail(memoryStream.ToArray());
-                                    PutObjectRequest putRequest = new PutObjectRequest()
+
+                                    using (var outputStream = new MemoryStream())
                                     {
-                                        BucketName = "taskmaster-thumbnail",
-                                        Key = $"thumbnail-{s3Event.Object.Key}",
-                                        ContentType = response.Headers.ContentType,
-                                        ContentBody = thumbnail
-                                        
-                                    };
-                                    await S3Client.PutObjectAsync(putRequest);
+                                        thumbnail.SaveAsJpeg(outputStream);
+                                        PutObjectRequest putRequest = new PutObjectRequest()
+                                        {
+                                            BucketName = "taskmaster-thumbnail",
+                                            Key = $"thumbnail-{s3Event.Object.Key}",
+                                            ContentType = response.Headers.ContentType,
+                                            InputStream = outputStream
+
+                                        };
+
+                                        await S3Client.PutObjectAsync(putRequest);
+                                    }
                                 }
+
+
                             }
                         }
                     }
@@ -106,25 +114,15 @@ namespace ThumbnailConverter
 
     public class Thumbnail
     {
-        public static String ConvertToThumbnail(byte [] imageStream)
+        public static GcBitmap ConvertToThumbnail(byte [] imageStream)
         {
             using (var image = new GcBitmap())
             {
                 image.Load(imageStream);
  
-                var resizeImage = image.Resize(100, 100, InterpolationMode.Linear);
-                return GetBase64(resizeImage);
+                var resizeImage = image.Resize(50, 50, InterpolationMode.Linear);
+                return resizeImage;
             }
         }
-
-        private static string GetBase64(GcBitmap image)
-        {
-            using (MemoryStream memoryStream = new MemoryStream())
-            {
-                image.SaveAsPng(memoryStream);
-                return Convert.ToBase64String(memoryStream.ToArray());
-            }
-        }
-
     }
 }
