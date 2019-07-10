@@ -78,13 +78,13 @@ namespace ThumbnailConverter
                                         memoryStream.Write(buffer, 0, bytesRead);
 
                                     var thumbnail = Thumbnail.ConvertToThumbnail(memoryStream.ToArray());
-
                                     PutObjectRequest putRequest = new PutObjectRequest()
                                     {
                                         BucketName = "taskmaster-thumbnail",
                                         Key = $"thumbnail-{s3Event.Object.Key}",
                                         ContentType = response.Headers.ContentType,
                                         ContentBody = thumbnail
+                                        
                                     };
                                     await S3Client.PutObjectAsync(putRequest);
                                 }
@@ -112,7 +112,7 @@ namespace ThumbnailConverter
             {
                 image.Load(imageStream);
  
-                var resizeImage = image.Resize(50, 50, InterpolationMode.Linear);
+                var resizeImage = image.Resize(100, 100, InterpolationMode.Linear);
                 return GetBase64(resizeImage);
             }
         }
