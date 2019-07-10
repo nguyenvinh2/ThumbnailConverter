@@ -121,7 +121,7 @@ namespace ThumbnailConverter
         {
             using (MemoryStream memoryStream = new MemoryStream())
             {
-                image.SaveAsJpeg(memoryStream);
+                image.SaveAsPng(memoryStream);
                 return Convert.ToBase64String(memoryStream.ToArray());
             }
         }
