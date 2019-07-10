@@ -112,12 +112,17 @@ namespace ThumbnailConverter
             {
                 image.Load(imageStream);
  
-                var resizeImage = image.Resize(50, 50, InterpolationMode.NearestNeighbor);
-                using (MemoryStream memoryStream = new MemoryStream())
-                {
-                    image.SaveAsPng(memoryStream);
-                    return Convert.ToBase64String(memoryStream.ToArray());
-                }
+                var resizeImage = image.Resize(50, 50, InterpolationMode.Linear);
+                return GetBase64(resizeImage);
+            }
+        }
+
+        private static string GetBase64(GcBitmap image)
+        {
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                image.SaveAsJpeg(memoryStream);
+                return Convert.ToBase64String(memoryStream.ToArray());
             }
         }
 
