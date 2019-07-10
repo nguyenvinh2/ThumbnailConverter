@@ -1,12 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
 using Amazon.Lambda.Core;
 using Amazon.Lambda.S3Events;
 using Amazon.S3;
+using Amazon.S3.Model;
 using Amazon.S3.Util;
+// https://www.grapecity.com/blogs/create-a-thumbnail-image-using-documents-for-imaging
+using GrapeCity.Documents.Imaging;
+
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -54,6 +59,47 @@ namespace ThumbnailConverter
             try
             {
                 var response = await this.S3Client.GetObjectMetadataAsync(s3Event.Bucket.Name, s3Event.Object.Key);
+
+                if (response.Headers.ContentType.StartsWith("image/"))
+                {
+                    using (GetObjectResponse responseObject = await S3Client.GetObjectAsync(
+                        s3Event.Bucket.Name,
+                        s3Event.Object.Key))
+                    {
+                        using (Stream responseStream = responseObject.ResponseStream)
+                        {
+                            using (StreamReader reader = new StreamReader(responseStream))
+                            {
+                                using (var memoryStream = new MemoryStream())
+                                {
+                                    var buffer = new byte[512];
+                                    var bytesRead = default(int);
+                                    while ((bytesRead = reader.BaseStream.Read(buffer, 0, buffer.Length)) > 0)
+                                        memoryStream.Write(buffer, 0, bytesRead);
+
+                                    var thumbnail = Thumbnail.ConvertToThumbnail(memoryStream.ToArray());
+
+                                    using (var outputStream = new MemoryStream())
+                                    {
+                                        thumbnail.SaveAsJpeg(outputStream);
+                                        PutObjectRequest putRequest = new PutObjectRequest()
+                                        {
+                                            BucketName = "taskmaster-thumbnail",
+                                            Key = $"thumbnail-{s3Event.Object.Key}",
+                                            ContentType = response.Headers.ContentType,
+                                            InputStream = outputStream
+
+                                        };
+
+                                        await S3Client.PutObjectAsync(putRequest);
+                                    }
+                                }
+
+
+                            }
+                        }
+                    }
+                }
                 return response.Headers.ContentType;
             }
             catch(Exception e)
@@ -62,6 +108,20 @@ namespace ThumbnailConverter
                 context.Logger.LogLine(e.Message);
                 context.Logger.LogLine(e.StackTrace);
                 throw;
+            }
+        }
+    }
+
+    public class Thumbnail
+    {
+        public static GcBitmap ConvertToThumbnail(byte [] imageStream)
+        {
+            using (var image = new GcBitmap())
+            {
+                image.Load(imageStream);
+ 
+                var resizeImage = image.Resize(50, 50, InterpolationMode.Linear);
+                return resizeImage;
             }
         }
     }
